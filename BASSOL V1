@@ -1,0 +1,97 @@
+/******************************************************
+ * ****             Báscula Solidaria              ****
+ * ****     By: José Felipe Martínez García        ****
+ * ****************************************************
+ */
+
+// Incluye las librerías
+#include "HX711.h"
+#include <Wire.h> 
+#include <LiquidCrystal_I2C.h>
+#include <EEPROM.h>
+
+// Define las constantes
+const byte DT = 3;
+const byte CLK = 2;
+const byte MODO_BUTTON = 7;
+const byte TARA_BUTTON = 6;
+const int KNOWN_WEIGHTS[] = {500, 1000, 3000, 5000};
+const int CALIBRATION_DELAY = 2000;
+const int TARE_DELAY = 100;
+
+// Crea el objeto para el LCD
+LiquidCrystal_I2C lcd(0x27,16,2);  
+
+// Crea el objeto para la balanza
+HX711 balanza;
+
+// Función para evitar el rebote del pulsador
+void anti_debounce(byte boton) {
+  delay(100);
+  while(digitalRead(boton)); // Espera hasta que el botón se suelte
+  delay(100);
+}
+
+// Función para la calibración y ajuste
+void calibration() {
+  int i = 0;
+  long adc_lecture;
+  
+  // Muestra un mensaje en el LCD
+  lcd.setCursor(2, 0);
+  lcd.print("Calibracion de");
+  lcd.setCursor(4, 1);
+  lcd.print("Balanza");
+  delay(CALIBRATION_DELAY);
+
+  // Configura la balanza
+  balanza.read();
+  balanza.set_scale(); // La escala por defecto es 1
+  balanza.tare(20);  // El peso actual es considerado Tara.
+
+  // Inicia el proceso de ajuste y calibración
+  while (true) {
+    lcd.setCursor(1, 0);
+    lcd.print("Peso Conocido:");
+    lcd.setCursor(1, 1);
+    lcd.print(KNOWN_WEIGHTS[i]);
+    lcd.print(" g        ");
+
+    // Busca el peso conocido con el botón TARA
+    if (digitalRead(TARA_BUTTON)) {  
+      anti_debounce(TARA_BUTTON);
+      i = (i + 1) % 4; // Cambia al siguiente peso conocido
+    }
+
+    // Selecciona el peso conocido con el botón MODO
+    if (digitalRead(MODO_BUTTON)) {
+      lcd.clear();
+      lcd.setCursor(1, 0);
+      lcd.print("Ponga el Peso");
+      lcd.setCursor(1, 1);
+      lcd.print("y espere ...");
+      delay(CALIBRATION_DELAY);
+
+      // Lee el valor del HX711
+      adc_lecture = balanza.get_value(100);
+
+      // Calcula la escala con el valor leído dividido por el peso conocido
+      long escala = adc_lecture / KNOWN_WEIGHTS[i];
+
+      // Guarda la escala en la EEPROM
+      EEPROM.put(0, escala);
+
+      lcd.clear();
+      break; // Sale del bucle while
+    }
+  }
+}
+
+void setup() {
+  // Configura la balanza
+  balanza.begin(DT, CLK);
+
+  // Configura los botones
+  pinMode(MODO_BUTTON, INPUT
+
+//me gustaría que apareciera al iniciarse el nombre ASTURIAS en el LCD como marca durante 2 segundos mientras hace la calibración
